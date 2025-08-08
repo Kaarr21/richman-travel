@@ -1,0 +1,18 @@
+# .gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+dist/
+build/
+*.egg-info/
+token.json
+credentials.json

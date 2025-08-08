@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richman Travel and Tours - Explore Kenya with a Local Expert</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .hero-bg {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.8)), 
+                        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600"><rect fill="%234ade80" width="100%" height="100%"/><path d="M0,300 Q250,200 500,300 T1000,300 L1000,600 L0,600 Z" fill="%2310b981"/></svg>');
+            background-size: cover;
+            background-position: center;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Mock data for destinations
+        const mockDestinations = [
+            {
+                id: 1,
+                name: "Maasai Mara Safari",
+                image: "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=400",
+                description: "Experience the Great Migration and witness the Big Five in Kenya's most famous game reserve.",
+                duration: "3 days",
+                highlights: ["Big Five", "Great Migration", "Maasai Culture"]
+            },
+            {
+                id: 2,
+                name: "Mount Kenya Expedition",
+                image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400",
+                description: "Conquer Africa's second-highest peak with breathtaking alpine scenery and unique wildlife.",
+                duration: "5 days",
+                highlights: ["Mountain Climbing", "Alpine Lakes", "Rare Wildlife"]
+            },
+            {
+                id: 3,
+                name: "Coastal Paradise - Diani Beach",
+                image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400",
+                description: "Relax on pristine white sand beaches with crystal-clear waters of the Indian Ocean.",
+                duration: "2 days",
+                highlights: ["White Sand Beaches", "Water Sports", "Coral Reefs"]
+            },
+            {
+                id: 4,
+                name: "Hell's Gate National Park",
+                image: "https://images.unsplash.com/photo-1571771019784-3ff35f4f4277?w=400",
+                description: "Cycle through dramatic landscapes and geothermal features in this unique park.",
+                duration: "1 day",
+                highlights: ["Cycling Safari", "Rock Climbing", "Geothermal Springs"]
+            }
+        ];
+
+        // Navigation Component
+        const Navigation = ({ currentView, setCurrentView, isAdmin, setIsAdmin }) => {
+            return (
+                <nav className="bg-white shadow-lg sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="flex justify-between items-center py-4">
+                            <div className="flex items-center space-x-2">
+                                <i className="fas fa-mountain text-green-600 text-2xl"></i>
+                                <h1 className="text-2xl font-bold text-gray-800">Richman Travel & Tours</h1>
+                            </div>
+                            
+                            <div className="hidden md:flex space-x-8">
+                                <button 
+                                    onClick={() => setCurrentView('home')}
+                                    className={`font-medium transition-colors ${currentView === 'home' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'}`}
+                                >
+                                    Home
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentView('destinations')}
+                                    className={`font-medium transition-colors ${currentView === 'destinations' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'}`}
+                                >
+                                    Destinations
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentView('booking')}
+                                    className={`font-medium transition-colors ${currentView === 'booking' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'}`}
+                                >
+                                    Book Now
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentView('about')}
+                                    className={`font-medium transition-colors ${currentView === 'about' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'}`}
+                                >
+                                    About
+                                </button>
+                            </div>
+
+                            <div className="flex items-center space-x-4">
+                                <button 
+                                    onClick={() => setIsAdmin(!isAdmin)}
+                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                >
+                                    {isAdmin ? 'User View' : 'Admin'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            );
+        };
+
+        // Hero Section Component
+        const HeroSection = ({ setCurrentView }) => {
+            return (
+                <section className="hero-bg min-h-screen flex items-center relative">
+                    <div className="absolute inset-0 bg-black opacity-20"></div>
+                    <div className="max-w-7xl mx-auto px-4 relative z-10">
+                        <div className="text-center text-white">
+                            <h1 className="text-6xl font-bold mb-6 animate-fade-in">
+                                Discover Kenya
+                                <span className="block text-4xl mt-2 text-green-300">with a Local Expert</span>
+                            </h1>
+                            <p className="text-xl mb-8 max-w-3xl mx-auto leading-relaxed">
+                                Join Richard on an unforgettable journey through Kenya's most spectacular landscapes, 
+                                from the iconic Maasai Mara to pristine coastal beaches. Experience authentic local culture 
+                                and hidden gems known only to locals.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                <button 
+                                    onClick={() => setCurrentView('booking')}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
+                                >
+                                    Book Your Adventure
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentView('destinations')}
+                                    className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 rounded-lg text-lg font-semibold transition-all"
+                                >
+                                    Explore Destinations
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Destinations Component
+        const DestinationsSection = () => {
+            return (
+                <section className="py-16 bg-gray-50">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="text-center mb-12">
+                            <h2 className="text-4xl font-bold text-gray-800 mb-4">Popular Destinations</h2>
+                            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+                                Explore Kenya's diverse landscapes and rich culture with carefully crafted tours
+                            </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            {mockDestinations.map(destination => (
+                                <div key={destination.id} className="bg-white rounded-xl shadow-lg card-hover overflow-hidden">
+                                    <img 
+                                        src={destination.image} 
+                                        alt={destination.name}
+                                        className="w-full h-48 object-cover"
+                                    />
+                                    <div className="p-6">
+                                        <h3 className="text-xl font-semibold mb-2">{destination.name}</h3>
+                                        <p className="text-gray-600 text-sm mb-3">{destination.description}</p>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-green-600 font-medium">
+                                                <i className="fas fa-clock mr-1"></i>
+                                                {destination.duration}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {destination.highlights.map((highlight, index) => (
+                                                <span key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                                                    {highlight}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Booking Component
+        const BookingSection = () => {
+            const [formData, setFormData] = useState({
+                name: '',
+                email: '',
+                phone: '',
+                destination: '',
+                date: '',
+                guests: 1,
+                message: ''
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                // Here you would integrate with the backend API
+                alert('Booking request submitted! Richard will contact you soon with pricing and details.');
+                setFormData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    destination: '',
+                    date: '',
+                    guests: 1,
+                    message: ''
+                });
+            };
+
+            const handleChange = (e) => {
+                setFormData({
+                    ...formData,
+                    [e.target.name]: e.target.value
+                });
+            };
+
+            return (
+                <section className="py-16 bg-white">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="text-center mb-12">
+                            <h2 className="text-4xl font-bold text-gray-800 mb-4">Book Your Adventure</h2>
+                            <p className="text-gray-600 text-lg">
+                                Ready to explore Kenya? Fill out the form below and Richard will contact you with a personalized quote.
+                            </p>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-xl p-8 shadow-lg">
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="Enter your full name"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Email *</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="Enter your email"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="Enter your phone number"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Preferred Destination</label>
+                                        <select
+                                            name="destination"
+                                            value={formData.destination}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        >
+                                            <option value="">Select a destination</option>
+                                            <option value="maasai-mara">Maasai Mara Safari</option>
+                                            <option value="mount-kenya">Mount Kenya Expedition</option>
+                                            <option value="diani-beach">Coastal Paradise - Diani Beach</option>
+                                            <option value="hells-gate">Hell's Gate National Park</option>
+                                            <option value="custom">Custom Tour</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Preferred Date</label>
+                                        <input
+                                            type="date"
+                                            name="date"
+                                            value={formData.date}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Number of Guests</label>
+                                        <input
+                                            type="number"
+                                            name="guests"
+                                            value={formData.guests}
+                                            onChange={handleChange}
+                                            min="1"
+                                            max="20"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">Additional Message</label>
+                                    <textarea
+                                        name="message"
+                                        value={formData.message}
+                                        onChange={handleChange}
+                                        rows="4"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        placeholder="Tell us about your interests, special requirements, or any questions you have..."
+                                    ></textarea>
+                                </div>
+
+                                <div className="text-center">
+                                    <button
+                                        type="submit"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
+                                    >
+                                        Submit Booking Request
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // About Section Component
+        const AboutSection = () => {
+            return (
+                <section className="py-16 bg-gray-50">
+                    <div className="max-w-6xl mx-auto px-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                            <div>
+                                <h2 className="text-4xl font-bold text-gray-800 mb-6">Meet Richard</h2>
+                                <p className="text-gray-600 text-lg mb-6 leading-relaxed">
+                                    Born and raised in Kenya, Richard has spent over 15 years sharing the beauty of his homeland 
+                                    with visitors from around the world. His deep knowledge of local culture, wildlife, and hidden 
+                                    gems makes every journey an authentic and unforgettable experience.
+                                </p>
+                                <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+                                    From the vast savannas of the Maasai Mara to the pristine beaches of the Kenyan coast, 
+                                    Richard's passion for his country shines through in every tour. He believes in responsible 
+                                    tourism that benefits local communities while preserving Kenya's natural wonders.
+                                </p>
+                                
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="text-center">
+                                        <div className="text-3xl font-bold text-green-600 mb-2">500+</div>
+                                        <div className="text-gray-600">Happy Travelers</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-3xl font-bold text-green-600 mb-2">15+</div>
+                                        <div className="text-gray-600">Years Experience</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="relative">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500" 
+                                    alt="Richard - Tour Guide" 
+                                    className="rounded-xl shadow-lg w-full"
+                                />
+                                <div className="absolute -bottom-6 -right-6 bg-green-600 text-white p-4 rounded-lg shadow-lg">
+                                    <i className="fas fa-quote-left text-2xl mb-2"></i>
+                                    <p className="text-sm font-medium">"Every journey tells a story"</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Admin Dashboard Component
+        const AdminDashboard = () => {
+            const [stats, setStats] = useState({
+                dailyVisits: 42,
+                weeklyVisits: 287,
+                monthlyVisits: 1243,
+                yearlyVisits: 15680,
+                totalBookings: 156,
+                pendingBookings: 8
+            });
+
+            const [newDestination, setNewDestination] = useState({
+                name: '',
+                description: '',
+                image: '',
+                duration: '',
+                highlights: ''
+            });
+
+            const handleDestinationSubmit = (e) => {
+                e.preventDefault();
+                alert('Destination added successfully!');
+                setNewDestination({
+                    name: '',
+                    description: '',
+                    image: '',
+                    duration: '',
+                    highlights: ''
+                });
+            };
+
+            return (
+                <div className="py-8 bg-gray-50 min-h-screen">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-8">Admin Dashboard</h1>
+                        
+                        {/* Statistics Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Daily Visits</p>
+                                        <p className="text-2xl font-bold text-blue-600">{stats.dailyVisits}</p>
+                                    </div>
+                                    <i className="fas fa-eye text-blue-600 text-2xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Weekly Visits</p>
+                                        <p className="text-2xl font-bold text-green-600">{stats.weeklyVisits}</p>
+                                    </div>
+                                    <i className="fas fa-calendar-week text-green-600 text-2xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Monthly Visits</p>
+                                        <p className="text-2xl font-bold text-purple-600">{stats.monthlyVisits}</p>
+                                    </div>
+                                    <i className="fas fa-calendar-alt text-purple-600 text-2xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Yearly Visits</p>
+                                        <p className="text-2xl font-bold text-orange-600">{stats.yearlyVisits}</p>
+                                    </div>
+                                    <i className="fas fa-calendar text-orange-600 text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Booking Statistics */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <h3 className="text-xl font-semibold mb-4">Booking Overview</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Total Bookings</span>
+                                        <span className="font-semibold">{stats.totalBookings}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Pending Requests</span>
+                                        <span className="font-semibold text-orange-600">{stats.pendingBookings}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
+                                <div className="space-y-3">
+                                    <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                                        View All Bookings
+                                    </button>
+                                    <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                                        Calendar Integration
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Add New Destination */}
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h3 className="text-xl font-semibold mb-6">Add New Destination</h3>
+                            <form onSubmit={handleDestinationSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Destination Name</label>
+                                        <input
+                                            type="text"
+                                            value={newDestination.name}
+                                            onChange={(e) => setNewDestination({...newDestination, name: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            placeholder="e.g., Amboseli National Park"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 font-medium mb-2">Duration</label>
+                                        <input
+                                            type="text"
+                                            value={newDestination.duration}
+                                            onChange={(e) => setNewDestination({...newDestination, duration: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            placeholder="e.g., 2 days"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">Image URL</label>
+                                    <input
+                                        type="url"
+                                        value={newDestination.image}
+                                        onChange={(e) => setNewDestination({...newDestination, image: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                        placeholder="https://example.com/image.jpg"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">Description</label>
+                                    <textarea
+                                        value={newDestination.description}
+                                        onChange={(e) => setNewDestination({...newDestination, description: e.target.value})}
+                                        rows="3"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                        placeholder="Describe the destination and what makes it special..."
+                                    ></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">Highlights (comma-separated)</label>
+                                    <input
+                                        type="text"
+                                        value={newDestination.highlights}
+                                        onChange={(e) => setNewDestination({...newDestination, highlights: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                        placeholder="Wildlife Viewing, Photography, Cultural Experience"
+                                    />
+                                </div>
+                                
+                                <button
+                                    type="submit"
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors"
+                                >
+                                    Add Destination
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [currentView, setCurrentView] = useState('home');
+            const [isAdmin, setIsAdmin] = useState(false);
+
+            if (isAdmin) {
+                return (
+                    <div className="min-h-screen bg-gray-100">
+                        <Navigation 
+                            currentView={currentView} 
+                            setCurrentView={setCurrentView}
+                            isAdmin={isAdmin}
+                            setIsAdmin={setIsAdmin}
+                        />
+                        <AdminDashboard />
+                    </div>
+                );
+            }
+
+            const renderContent = () => {
+                switch(currentView) {
+                    case 'destinations':
+                        return <DestinationsSection />;
+                    case 'booking':
+                        return <BookingSection />;
+                    case 'about':
+                        return <AboutSection />;
+                    default:
+                        return (
+                            <>
+                                <HeroSection setCurrentView={setCurrentView} />
+                                <DestinationsSection />
+                                <AboutSection />
+                            </>
+                        );
+                }
+            };
+
+            return (
+                <div className="min-h-screen">
+                    <Navigation 
+                        currentView={currentView} 
+                        setCurrentView={setCurrentView}
+                        isAdmin={isAdmin}
+                        setIsAdmin={setIsAdmin}
+                    />
+                    {renderContent()}
+                    <Footer />
+                </div>
+            );
+        };
+
+        // Footer Component
+        const Footer = () => {
+            return (
+                <footer className="bg-gray-800 text-white py-12">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                            <div>
+                                <div className="flex items-center space-x-2 mb-4">
+                                    <i className="fas fa-mountain text-green-400 text-2xl"></i>
+                                    <h3 className="text-xl font-bold">Richman Travel & Tours</h3>
+                                </div>
+                                <p className="text-gray-400 mb-4">
+                                    Experience the authentic beauty of Kenya with a local expert guide.
+                                </p>
+                                <div className="flex space-x-4">
+                                    <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                                        <i className="fab fa-facebook-f text-xl"></i>
+                                    </a>
+                                    <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                                        <i className="fab fa-instagram text-xl"></i>
+                                    </a>
+                                    <a href="#" className="text-gray-400 hover:text-green-400 transition-colors">
+                                        <i className="fab fa-whatsapp text-xl"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+                                <ul className="space-y-2">
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Home</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Destinations</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Book Now</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">About</a></li>
+                                </ul>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-semibold mb-4">Popular Tours</h4>
+                                <ul className="space-y-2">
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Maasai Mara Safari</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Mount Kenya Trek</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Coastal Tours</a></li>
+                                    <li><a href="#" className="text-gray-400 hover:text-green-400 transition-colors">Cultural Experiences</a></li>
+                                </ul>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-semibold mb-4">Contact Info</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center space-x-3">
+                                        <i className="fas fa-phone text-green-400"></i>
+                                        <span className="text-gray-400">+254 700 123 456</span>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <i className="fas fa-envelope text-green-400"></i>
+                                        <span className="text-gray-400">richard@richmantravel.co.ke</span>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <i className="fas fa-map-marker-alt text-green-400"></i>
+                                        <span className="text-gray-400">Nairobi, Kenya</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="border-t border-gray-700 mt-8 pt-8 text-center">
+                            <p className="text-gray-400">
+                                © 2024 Richman Travel & Tours. All rights reserved. | Designed for authentic Kenyan experiences.
+                            </p>
+                        </div>
+                    </div>
+                </footer>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+        

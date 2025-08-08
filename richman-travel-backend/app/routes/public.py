@@ -2,12 +2,14 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db, limiter
 from app.models import Destination, Booking, ContactMessage, SiteVisit
-from app.services.booking_service import BookingService
-from app.utils.validators import validate_booking_data
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 public_bp = Blueprint('public', __name__)
 
-@app.route('/api/health', methods=['GET'])
+@public_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
@@ -16,7 +18,7 @@ def health_check():
         'version': '1.0.0'
     })
 
-@app.route('/api/destinations', methods=['GET'])
+@public_bp.route('/destinations', methods=['GET'])
 @limiter.limit("30 per minute")
 def get_destinations():
     """Get all active destinations"""
@@ -38,7 +40,7 @@ def get_destinations():
         logger.error(f"Error fetching destinations: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/destinations/<slug>', methods=['GET'])
+@public_bp.route('/destinations/<slug>', methods=['GET'])
 @limiter.limit("30 per minute")
 def get_destination_by_slug(slug):
     """Get destination by slug and increment view count"""
@@ -59,7 +61,7 @@ def get_destination_by_slug(slug):
         logger.error(f"Error fetching destination: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/bookings', methods=['POST'])
+@public_bp.route('/bookings', methods=['POST'])
 @limiter.limit("5 per hour")
 def create_booking():
     """Create new booking"""
@@ -74,7 +76,6 @@ def create_booking():
         
         # Create booking
         booking = Booking(
-            booking_reference=Booking().generate_reference(),
             name=data['name'],
             email=data['email'],
             phone=data.get('phone', ''),
@@ -86,15 +87,10 @@ def create_booking():
             user_agent=request.headers.get('User-Agent', '')
         )
         
+        booking.booking_reference = booking.generate_reference()
+        
         db.session.add(booking)
         db.session.commit()
-        
-        # Create Google Calendar event
-        if booking.preferred_date:
-            event_id = create_google_calendar_event(booking)
-            if event_id:
-                booking.google_event_id = event_id
-                db.session.commit()
         
         logger.info(f"New booking created: {booking.booking_reference}")
         
@@ -114,7 +110,7 @@ def create_booking():
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/contact', methods=['POST'])
+@public_bp.route('/contact', methods=['POST'])
 @limiter.limit("3 per hour")
 def contact_message():
     """Handle contact form submissions"""
@@ -146,3 +142,4 @@ def contact_message():
         logger.error(f"Error saving contact message: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
+        

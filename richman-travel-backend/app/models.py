@@ -1,4 +1,9 @@
-# ====== DATABASE MODELS ======
+# app/models.py - Database models
+from app.extensions import db
+from datetime import datetime
+import uuid
+import bcrypt
+import json
 
 class Admin(db.Model):
     __tablename__ = 'admins'

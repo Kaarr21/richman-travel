@@ -23,7 +23,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://localhost/richman_travel_dev')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://myuser:Karokin35!@localhost/mydb')
 
 class ProductionConfig(Config):
     DEBUG = False

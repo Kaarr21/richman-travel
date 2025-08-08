@@ -1,13 +1,19 @@
 # app/routes/admin.py - Admin-only API endpoints
-from flask import Blueprint, request, jsonify
-from app.extensions import db
-from app.models import Booking, Destination, Admin
+from flask import Blueprint, request, jsonify, current_app
+from app.extensions import db, limiter
+from app.models import Booking, Destination, Admin, SiteVisit, ContactMessage
 from app.utils.decorators import token_required
-from app.services.analytics_service import AnalyticsService
+from sqlalchemy import func, extract
+from datetime import datetime, timedelta
+import jwt
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__)
 
-@app.route('/api/admin/login', methods=['POST'])
+@admin_bp.route('/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def admin_login():
     """Admin login"""
@@ -32,7 +38,7 @@ def admin_login():
             'admin_id': admin.id,
             'username': admin.username,
             'exp': datetime.utcnow() + timedelta(days=1)
-        }, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+        }, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
         
         return jsonify({
             'success': True,
@@ -49,7 +55,7 @@ def admin_login():
         logger.error(f"Error during admin login: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/dashboard/stats', methods=['GET'])
+@admin_bp.route('/dashboard/stats', methods=['GET'])
 @token_required
 def admin_dashboard_stats(current_admin):
     """Get dashboard statistics"""
@@ -83,14 +89,6 @@ def admin_dashboard_stats(current_admin):
         confirmed_bookings = Booking.query.filter_by(status='confirmed').count()
         completed_bookings = Booking.query.filter_by(status='completed').count()
         
-        # Monthly booking trends
-        monthly_bookings = db.session.query(
-            extract('month', Booking.created_at).label('month'),
-            func.count(Booking.id).label('count')
-        ).filter(
-            Booking.created_at >= month_ago
-        ).group_by(extract('month', Booking.created_at)).all()
-        
         # Top destinations
         top_destinations = db.session.query(
             Booking.destination,
@@ -115,9 +113,6 @@ def admin_dashboard_stats(current_admin):
                     'confirmed': confirmed_bookings,
                     'completed': completed_bookings
                 },
-                'trends': {
-                    'monthly_bookings': [{'month': m, 'count': c} for m, c in monthly_bookings]
-                },
                 'top_destinations': [{'destination': d, 'count': c} for d, c in top_destinations]
             }
         })
@@ -126,7 +121,7 @@ def admin_dashboard_stats(current_admin):
         logger.error(f"Error fetching dashboard stats: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/bookings', methods=['GET'])
+@admin_bp.route('/bookings', methods=['GET'])
 @token_required
 def admin_get_bookings(current_admin):
     """Get all bookings with pagination"""
@@ -158,7 +153,7 @@ def admin_get_bookings(current_admin):
         logger.error(f"Error fetching bookings: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/bookings/<int:booking_id>', methods=['PUT'])
+@admin_bp.route('/bookings/<int:booking_id>', methods=['PUT'])
 @token_required
 def admin_update_booking(current_admin, booking_id):
     """Update booking status and details"""
@@ -186,7 +181,7 @@ def admin_update_booking(current_admin, booking_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/destinations', methods=['GET'])
+@admin_bp.route('/destinations', methods=['GET'])
 @token_required
 def admin_get_destinations(current_admin):
     """Get all destinations for admin"""
@@ -200,7 +195,7 @@ def admin_get_destinations(current_admin):
         logger.error(f"Error fetching destinations: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/destinations', methods=['POST'])
+@admin_bp.route('/destinations', methods=['POST'])
 @token_required
 def admin_create_destination(current_admin):
     """Create new destination"""
@@ -242,62 +237,7 @@ def admin_create_destination(current_admin):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/destinations/<int:destination_id>', methods=['PUT'])
-@token_required
-def admin_update_destination(current_admin, destination_id):
-    """Update destination"""
-    try:
-        destination = Destination.query.get_or_404(destination_id)
-        data = request.get_json()
-        
-        # Update fields
-        allowed_fields = [
-            'name', 'description', 'image_url', 'duration', 'highlights',
-            'price_range', 'difficulty_level', 'best_time_to_visit',
-            'is_featured', 'is_active'
-        ]
-        
-        for field in allowed_fields:
-            if field in data:
-                if field == 'highlights' and isinstance(data[field], list):
-                    setattr(destination, field, json.dumps(data[field]))
-                else:
-                    setattr(destination, field, data[field])
-        
-        destination.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Destination updated successfully',
-            'data': destination.to_dict()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error updating destination: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
-
-@app.route('/api/admin/destinations/<int:destination_id>', methods=['DELETE'])
-@token_required
-def admin_delete_destination(current_admin, destination_id):
-    """Delete destination"""
-    try:
-        destination = Destination.query.get_or_404(destination_id)
-        db.session.delete(destination)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Destination deleted successfully'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error deleting destination: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
-
-@app.route('/api/admin/messages', methods=['GET'])
+@admin_bp.route('/messages', methods=['GET'])
 @token_required
 def admin_get_messages(current_admin):
     """Get contact messages"""
@@ -310,3 +250,4 @@ def admin_get_messages(current_admin):
     except Exception as e:
         logger.error(f"Error fetching messages: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
+        

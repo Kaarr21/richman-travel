@@ -4,7 +4,8 @@ from datetime import datetime
 import uuid
 import bcrypt
 import json
-
+import secrets
+import string
 class Admin(db.Model):
     __tablename__ = 'admins'
     
@@ -44,7 +45,27 @@ class Booking(db.Model):
 
     def generate_reference(self):
         """Generate unique booking reference"""
-        return f"RT{datetime.now().strftime('%Y%m')}{str(uuid.uuid4())[:6].upper()}"
+        # Use current timestamp and random string for uniqueness
+        timestamp = datetime.now().strftime('%y%m%d')  # YYMMDD format
+        # Generate random 4-character string
+        random_part = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4))
+        return f"RT{timestamp}{random_part}"
+
+    @staticmethod
+    def generate_unique_reference():
+        """Generate a unique booking reference, checking database for uniqueness"""
+        max_attempts = 10
+        for _ in range(max_attempts):
+            # Create a temporary booking instance to use the method
+            temp_booking = Booking()
+            reference = temp_booking.generate_reference()
+            
+            # Check if this reference already exists
+            if not Booking.query.filter_by(booking_reference=reference).first():
+                return reference
+        
+        # Fallback: use UUID if we can't generate unique reference
+        return f"RT{datetime.now().strftime('%y%m%d')}{str(uuid.uuid4())[:6].upper()}"
 
     def to_dict(self):
         return {
@@ -62,6 +83,9 @@ class Booking(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+
+    def __repr__(self):
+        return f'<Booking {self.booking_reference}: {self.name}>'
 
 class Destination(db.Model):
     __tablename__ = 'destinations'

@@ -1,4 +1,4 @@
-# app/__init__.py - Flask application factory
+# app/__init__.py - Fixed Flask application factory
 from flask import Flask
 from config import config_by_name
 from app.extensions import db, migrate, cors, limiter
@@ -13,8 +13,12 @@ def create_app(config_name='development'):
     db.init_app(app)
     migrate.init_app(app, db)
     
-    # Configure CORS properly
-    cors.init_app(app, origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']))
+    # Configure CORS properly - this is the key fix
+    cors.init_app(app, 
+                  origins=['http://localhost:5173', 'http://127.0.0.1:5173'],
+                  supports_credentials=True,
+                  allow_headers=['Content-Type', 'Authorization'],
+                  methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
     
     limiter.init_app(app)
     

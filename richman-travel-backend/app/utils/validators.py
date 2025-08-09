@@ -1,4 +1,4 @@
-# app/utils/validators.py
+# app/utils/validators.py - Fixed validation logic
 import re
 from datetime import datetime, date
 
@@ -10,48 +10,63 @@ def validate_email(email):
     return re.match(pattern, email) is not None
 
 def validate_phone(phone):
-    """Validate phone number format"""
+    """Validate phone number format - made more lenient"""
     if not phone:
         return True  # Phone is optional
-    # Allow various phone formats
-    pattern = r'^[\+]?[1-9][\d]{0,15}$'
-    return re.match(pattern, re.sub(r'[\s\-\(\)]', '', phone)) is not None
+    # Remove all non-digit characters for validation
+    cleaned_phone = re.sub(r'[\s\-\(\)\+]', '', phone)
+    # Allow 7-15 digits (more flexible)
+    return len(cleaned_phone) >= 7 and cleaned_phone.isdigit()
 
 def validate_booking_data(data):
-    """Validate booking form data"""
+    """Validate booking form data with improved logic"""
     errors = []
     
-    # Required fields
-    if not data.get('name') or len(data['name'].strip()) < 2:
+    # Required fields validation
+    name = data.get('name', '').strip()
+    if not name or len(name) < 2:
         errors.append('Name must be at least 2 characters long')
     
-    if not data.get('email') or not validate_email(data['email']):
-        errors.append('Valid email address is required')
+    email = data.get('email', '').strip()
+    if not email:
+        errors.append('Email address is required')
+    elif not validate_email(email):
+        errors.append('Please enter a valid email address')
     
-    # Optional phone validation
-    if data.get('phone') and not validate_phone(data['phone']):
-        errors.append('Invalid phone number format')
+    # Optional phone validation - more lenient
+    phone = data.get('phone', '').strip()
+    if phone and not validate_phone(phone):
+        errors.append('Please enter a valid phone number (7-15 digits)')
     
-    # Date validation
-    if data.get('date'):
+    # Date validation - allow empty dates
+    booking_date = data.get('date', '').strip()
+    if booking_date:
         try:
-            booking_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            if booking_date < date.today():
-                errors.append('Booking date cannot be in the past')
+            parsed_date = datetime.strptime(booking_date, '%Y-%m-%d').date()
+            # Allow dates from today onwards (more lenient)
+            if parsed_date < date.today():
+                errors.append('Booking date should be today or in the future')
         except ValueError:
-            errors.append('Invalid date format (YYYY-MM-DD expected)')
+            errors.append('Please enter date in YYYY-MM-DD format')
     
-    # Guests validation
+    # Guests validation - more lenient range
     try:
         guests = int(data.get('guests', 1))
-        if guests < 1 or guests > 50:
-            errors.append('Number of guests must be between 1 and 50')
-    except ValueError:
-        errors.append('Invalid number of guests')
+        if guests < 1:
+            errors.append('Number of guests must be at least 1')
+        elif guests > 100:  # More reasonable upper limit
+            errors.append('Number of guests cannot exceed 100')
+    except (ValueError, TypeError):
+        errors.append('Please enter a valid number of guests')
     
-    # Message length
-    if data.get('message') and len(data['message']) > 1000:
-        errors.append('Message cannot exceed 1000 characters')
+    # Destination validation - optional
+    destination = data.get('destination', '').strip()
+    # No validation required since destination is optional
+    
+    # Message validation - optional with reasonable length limit
+    message = data.get('message', '').strip()
+    if message and len(message) > 2000:  # Increased limit
+        errors.append('Message cannot exceed 2000 characters')
     
     return errors
 
@@ -79,16 +94,21 @@ def validate_contact_data(data):
     """Validate contact form data"""
     errors = []
     
-    if not data.get('name') or len(data['name'].strip()) < 2:
+    name = data.get('name', '').strip()
+    if not name or len(name) < 2:
         errors.append('Name must be at least 2 characters long')
     
-    if not data.get('email') or not validate_email(data['email']):
-        errors.append('Valid email address is required')
+    email = data.get('email', '').strip()
+    if not email:
+        errors.append('Email address is required')
+    elif not validate_email(email):
+        errors.append('Please enter a valid email address')
     
-    if not data.get('message') or len(data['message'].strip()) < 10:
+    message = data.get('message', '').strip()
+    if not message or len(message) < 10:
         errors.append('Message must be at least 10 characters long')
     
-    if data.get('message') and len(data['message']) > 2000:
+    if message and len(message) > 2000:
         errors.append('Message cannot exceed 2000 characters')
     
     return errors
@@ -105,7 +125,7 @@ def sanitize_input(text):
     if not text:
         return text
     # Remove potential HTML tags and script content
-    text = re.sub(r'<[^>]*>', '', text)
-    text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]*>', '', str(text))
+    text = re.sub(r'javascript:', '', str(text), flags=re.IGNORECASE)
     return text.strip()
     

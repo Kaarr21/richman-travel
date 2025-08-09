@@ -75,6 +75,7 @@ def send_notification_email(to_email, subject, body, is_html=False):
     except Exception as e:
         logger.error(f"Error sending email: {e}")
         return False
+    
 
 def send_booking_confirmation_email(booking):
     """Send booking confirmation email to client"""

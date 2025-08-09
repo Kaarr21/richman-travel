@@ -1,4 +1,4 @@
-# app/routes/public.py - All public-facing API endpoints
+# app/routes/public.py - Fixed booking route
 from flask import Blueprint, request, jsonify
 from app.extensions import db, limiter
 from app.models import Destination, Booking, ContactMessage, SiteVisit
@@ -66,35 +66,78 @@ def get_destination_by_slug(slug):
 @public_bp.route('/bookings', methods=['POST'])
 @limiter.limit("5 per hour")
 def create_booking():
-    """Create new booking with validation"""
+    """Create new booking with improved validation"""
     try:
+        # Get and validate JSON data
+        if not request.is_json:
+            return jsonify({
+                'success': False, 
+                'message': 'Request must be JSON',
+                'errors': ['Content-Type must be application/json']
+            }), 400
+            
         data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False, 
+                'message': 'No data provided',
+                'errors': ['Request body is empty']
+            }), 400
+
+        # Log received data for debugging
+        logger.info(f"Received booking data: {data}")
         
         # Sanitize inputs
+        sanitized_data = {}
         for field in ['name', 'email', 'phone', 'destination', 'message']:
-            if data.get(field):
-                data[field] = sanitize_input(data[field])
+            if field in data and data[field] is not None:
+                sanitized_data[field] = sanitize_input(str(data[field]))
+            else:
+                sanitized_data[field] = data.get(field, '')
+        
+        # Copy other fields as-is
+        for field in ['date', 'guests']:
+            sanitized_data[field] = data.get(field)
         
         # Validate data
-        validation_errors = validate_booking_data(data)
+        validation_errors = validate_booking_data(sanitized_data)
         if validation_errors:
+            logger.warning(f"Validation failed for booking: {validation_errors}")
             return jsonify({
                 'success': False, 
                 'message': 'Validation failed',
                 'errors': validation_errors
             }), 400
         
+        # Parse date if provided
+        booking_date = None
+        if sanitized_data.get('date'):
+            try:
+                booking_date = datetime.strptime(sanitized_data['date'], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid date format',
+                    'errors': ['Date must be in YYYY-MM-DD format']
+                }), 400
+        
+        # Parse guests
+        try:
+            guests_count = int(sanitized_data.get('guests', 1))
+        except (ValueError, TypeError):
+            guests_count = 1
+        
         # Create booking
         booking = Booking(
-            name=data['name'],
-            email=data['email'],
-            phone=data.get('phone', ''),
-            destination=data.get('destination', ''),
-            preferred_date=datetime.strptime(data['date'], '%Y-%m-%d').date() if data.get('date') else None,
-            guests=int(data.get('guests', 1)),
-            message=data.get('message', ''),
+            name=sanitized_data['name'],
+            email=sanitized_data['email'],
+            phone=sanitized_data.get('phone', ''),
+            destination=sanitized_data.get('destination', ''),
+            preferred_date=booking_date,
+            guests=guests_count,
+            message=sanitized_data.get('message', ''),
             ip_address=request.remote_addr,
-            user_agent=request.headers.get('User-Agent', '')
+            user_agent=request.headers.get('User-Agent', '')[:255]  # Limit length
         )
         
         booking.booking_reference = booking.generate_reference()
@@ -102,45 +145,62 @@ def create_booking():
         db.session.add(booking)
         db.session.commit()
         
-        # Send notifications
+        logger.info(f"Created booking: {booking.booking_reference}")
+        
+        # Send notifications (non-blocking)
         try:
             send_booking_confirmation_email(booking)
             send_admin_booking_notification(booking)
         except Exception as e:
             logger.warning(f"Failed to send email notifications: {e}")
         
-        logger.info(f"New booking created: {booking.booking_reference}")
-        
         return jsonify({
             'success': True,
-            'message': 'Booking request submitted successfully',
+            'message': 'Booking request submitted successfully! We will contact you within 24 hours.',
             'data': {
                 'booking_reference': booking.booking_reference,
-                'status': booking.status
+                'status': booking.status,
+                'name': booking.name,
+                'email': booking.email
             }
         }), 201
         
-    except ValueError as e:
-        return jsonify({'success': False, 'message': 'Invalid date format'}), 400
     except Exception as e:
-        logger.error(f"Error creating booking: {e}")
+        logger.error(f"Error creating booking: {str(e)}", exc_info=True)
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+        return jsonify({
+            'success': False, 
+            'message': 'Internal server error. Please try again later.'
+        }), 500
 
 @public_bp.route('/contact', methods=['POST'])
 @limiter.limit("3 per hour")
 def contact_message():
     """Handle contact form submissions with validation"""
     try:
+        if not request.is_json:
+            return jsonify({
+                'success': False, 
+                'message': 'Request must be JSON'
+            }), 400
+            
         data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False, 
+                'message': 'No data provided'
+            }), 400
         
         # Sanitize inputs
+        sanitized_data = {}
         for field in ['name', 'email', 'subject', 'message']:
-            if data.get(field):
-                data[field] = sanitize_input(data[field])
+            if field in data and data[field] is not None:
+                sanitized_data[field] = sanitize_input(str(data[field]))
+            else:
+                sanitized_data[field] = data.get(field, '')
         
         # Validate data
-        validation_errors = validate_contact_data(data)
+        validation_errors = validate_contact_data(sanitized_data)
         if validation_errors:
             return jsonify({
                 'success': False,
@@ -149,10 +209,10 @@ def contact_message():
             }), 400
         
         message = ContactMessage(
-            name=data['name'],
-            email=data['email'],
-            subject=data.get('subject', ''),
-            message=data['message'],
+            name=sanitized_data['name'],
+            email=sanitized_data['email'],
+            subject=sanitized_data.get('subject', ''),
+            message=sanitized_data['message'],
             ip_address=request.remote_addr
         )
         
@@ -161,10 +221,14 @@ def contact_message():
         
         return jsonify({
             'success': True,
-            'message': 'Message sent successfully'
+            'message': 'Message sent successfully! We will get back to you soon.'
         }), 201
         
     except Exception as e:
         logger.error(f"Error saving contact message: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+        return jsonify({
+            'success': False, 
+            'message': 'Internal server error. Please try again later.'
+        }), 500
+        

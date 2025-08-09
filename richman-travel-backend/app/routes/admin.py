@@ -1,59 +1,17 @@
-# app/routes/admin.py - Admin-only API endpoints
+# app/routes/admin.py - Fixed version with duplicate login removed
 from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db, limiter
 from app.models import Booking, Destination, Admin, SiteVisit, ContactMessage
 from app.utils.decorators import token_required
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
-import jwt
-import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__)
 
-@admin_bp.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")
-def admin_login():
-    """Admin login"""
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        
-        if not username or not password:
-            return jsonify({'success': False, 'message': 'Username and password required'}), 400
-        
-        admin = Admin.query.filter_by(username=username, is_active=True).first()
-        if not admin or not admin.check_password(password):
-            return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
-        
-        # Update last login
-        admin.last_login = datetime.utcnow()
-        db.session.commit()
-        
-        # Generate JWT token
-        token = jwt.encode({
-            'admin_id': admin.id,
-            'username': admin.username,
-            'exp': datetime.utcnow() + timedelta(days=1)
-        }, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
-        
-        return jsonify({
-            'success': True,
-            'token': token,
-            'admin': {
-                'id': admin.id,
-                'username': admin.username,
-                'email': admin.email,
-                'last_login': admin.last_login.isoformat() if admin.last_login else None
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Error during admin login: {e}")
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+# REMOVED: Duplicate login route (now only in auth.py)
 
 @admin_bp.route('/dashboard/stats', methods=['GET'])
 @token_required
@@ -88,6 +46,7 @@ def admin_dashboard_stats(current_admin):
         pending_bookings = Booking.query.filter_by(status='pending').count()
         confirmed_bookings = Booking.query.filter_by(status='confirmed').count()
         completed_bookings = Booking.query.filter_by(status='completed').count()
+        cancelled_bookings = Booking.query.filter_by(status='cancelled').count()
         
         # Top destinations
         top_destinations = db.session.query(
@@ -111,7 +70,8 @@ def admin_dashboard_stats(current_admin):
                     'total': total_bookings,
                     'pending': pending_bookings,
                     'confirmed': confirmed_bookings,
-                    'completed': completed_bookings
+                    'completed': completed_bookings,
+                    'cancelled': cancelled_bookings
                 },
                 'top_destinations': [{'destination': d, 'count': c} for d, c in top_destinations]
             }
@@ -161,14 +121,35 @@ def admin_update_booking(current_admin, booking_id):
         booking = Booking.query.get_or_404(booking_id)
         data = request.get_json()
         
+        # Log the update attempt
+        logger.info(f"Admin {current_admin.username} updating booking {booking_id} with data: {data}")
+        
         # Update allowed fields
         allowed_fields = ['status', 'estimated_cost']
+        updated_fields = []
+        
         for field in allowed_fields:
-            if field in data:
-                setattr(booking, field, data[field])
+            if field in data and data[field] is not None:
+                old_value = getattr(booking, field)
+                new_value = data[field]
+                
+                # Convert estimated_cost to float if provided
+                if field == 'estimated_cost' and new_value:
+                    try:
+                        new_value = float(new_value)
+                    except (ValueError, TypeError):
+                        return jsonify({
+                            'success': False, 
+                            'message': 'Invalid estimated cost format'
+                        }), 400
+                
+                setattr(booking, field, new_value)
+                updated_fields.append(f"{field}: {old_value} → {new_value}")
         
         booking.updated_at = datetime.utcnow()
         db.session.commit()
+        
+        logger.info(f"Booking {booking.booking_reference} updated successfully. Changes: {', '.join(updated_fields)}")
         
         return jsonify({
             'success': True,
@@ -177,7 +158,31 @@ def admin_update_booking(current_admin, booking_id):
         })
         
     except Exception as e:
-        logger.error(f"Error updating booking: {e}")
+        logger.error(f"Error updating booking {booking_id}: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+
+@admin_bp.route('/bookings/<int:booking_id>', methods=['DELETE'])
+@token_required
+def admin_delete_booking(current_admin, booking_id):
+    """Delete a booking (soft delete by marking as cancelled)"""
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        
+        # Instead of actually deleting, mark as cancelled
+        booking.status = 'cancelled'
+        booking.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        logger.info(f"Admin {current_admin.username} cancelled booking {booking.booking_reference}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Booking cancelled successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting booking {booking_id}: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
@@ -210,6 +215,11 @@ def admin_create_destination(current_admin):
         # Generate slug
         slug = data['name'].lower().replace(' ', '-').replace('&', 'and')
         
+        # Check if slug already exists
+        existing = Destination.query.filter_by(slug=slug).first()
+        if existing:
+            return jsonify({'success': False, 'message': 'A destination with this name already exists'}), 400
+        
         destination = Destination(
             name=data['name'],
             slug=slug,
@@ -225,6 +235,8 @@ def admin_create_destination(current_admin):
         
         db.session.add(destination)
         db.session.commit()
+        
+        logger.info(f"Admin {current_admin.username} created destination: {destination.name}")
         
         return jsonify({
             'success': True,
@@ -242,12 +254,70 @@ def admin_create_destination(current_admin):
 def admin_get_messages(current_admin):
     """Get contact messages"""
     try:
-        messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(50).all()
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        
+        messages = ContactMessage.query.order_by(
+            ContactMessage.created_at.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        
         return jsonify({
             'success': True,
-            'data': [msg.to_dict() for msg in messages]
+            'data': [msg.to_dict() for msg in messages.items],
+            'pagination': {
+                'page': page,
+                'pages': messages.pages,
+                'per_page': per_page,
+                'total': messages.total
+            }
         })
     except Exception as e:
         logger.error(f"Error fetching messages: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
+
+@admin_bp.route('/export/bookings', methods=['GET'])
+@token_required
+def admin_export_bookings(current_admin):
+    """Export bookings as CSV"""
+    try:
+        import csv
+        import io
+        from flask import make_response
         
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'Booking Reference', 'Name', 'Email', 'Phone', 'Destination',
+            'Date', 'Guests', 'Status', 'Estimated Cost', 'Created', 'Message'
+        ])
+        
+        # Write bookings
+        bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+        for booking in bookings:
+            writer.writerow([
+                booking.booking_reference,
+                booking.name,
+                booking.email,
+                booking.phone or '',
+                booking.destination or '',
+                booking.preferred_date.strftime('%Y-%m-%d') if booking.preferred_date else '',
+                booking.guests,
+                booking.status,
+                booking.estimated_cost or '',
+                booking.created_at.strftime('%Y-%m-%d %H:%M'),
+                booking.message or ''
+            ])
+        
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=bookings_{datetime.now().strftime("%Y%m%d")}.csv'
+        
+        logger.info(f"Admin {current_admin.username} exported bookings")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting bookings: {e}")
+        return jsonify({'success': False, 'message': 'Export failed'}), 500

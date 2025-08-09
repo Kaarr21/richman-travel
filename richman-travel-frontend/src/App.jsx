@@ -14,7 +14,7 @@ export default function App() {
 
   const renderContent = () => {
     if (isAdmin) {
-      return <AdminDashboard />
+      return <AdminDashboard setIsAdmin={setIsAdmin} />
     }
 
     switch (currentView) {

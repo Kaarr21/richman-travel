@@ -38,3 +38,7 @@ config_by_name = {
     'testing': TestingConfig,
     'default': DevelopmentConfig
 }
+class DevelopmentConfig(Config):
+    DEBUG = True
+    # Add this line
+    CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']

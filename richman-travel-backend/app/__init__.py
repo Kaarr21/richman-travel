@@ -6,12 +6,16 @@ from app.routes import public_bp, admin_bp, auth_bp
 
 def create_app(config_name='development'):
     app = Flask(__name__)
-    app.config.from_object(config_by_name[config_name])
+    config = config_by_name.get(config_name, config_by_name['default'])
+    app.config.from_object(config)
     
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    cors.init_app(app)
+    
+    # Configure CORS properly
+    cors.init_app(app, origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']))
+    
     limiter.init_app(app)
     
     # Register blueprints
@@ -24,3 +28,4 @@ def create_app(config_name='development'):
     register_error_handlers(app)
     
     return app
+    

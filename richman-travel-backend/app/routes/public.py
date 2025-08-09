@@ -2,6 +2,8 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db, limiter
 from app.models import Destination, Booking, ContactMessage, SiteVisit
+from app.utils.validators import validate_booking_data, validate_contact_data, sanitize_input
+from app.utils.helpers import send_booking_confirmation_email, send_admin_booking_notification
 from datetime import datetime
 import logging
 
@@ -64,15 +66,23 @@ def get_destination_by_slug(slug):
 @public_bp.route('/bookings', methods=['POST'])
 @limiter.limit("5 per hour")
 def create_booking():
-    """Create new booking"""
+    """Create new booking with validation"""
     try:
         data = request.get_json()
         
-        # Validate required fields
-        required_fields = ['name', 'email']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'success': False, 'message': f'{field} is required'}), 400
+        # Sanitize inputs
+        for field in ['name', 'email', 'phone', 'destination', 'message']:
+            if data.get(field):
+                data[field] = sanitize_input(data[field])
+        
+        # Validate data
+        validation_errors = validate_booking_data(data)
+        if validation_errors:
+            return jsonify({
+                'success': False, 
+                'message': 'Validation failed',
+                'errors': validation_errors
+            }), 400
         
         # Create booking
         booking = Booking(
@@ -91,6 +101,13 @@ def create_booking():
         
         db.session.add(booking)
         db.session.commit()
+        
+        # Send notifications
+        try:
+            send_booking_confirmation_email(booking)
+            send_admin_booking_notification(booking)
+        except Exception as e:
+            logger.warning(f"Failed to send email notifications: {e}")
         
         logger.info(f"New booking created: {booking.booking_reference}")
         
@@ -113,14 +130,23 @@ def create_booking():
 @public_bp.route('/contact', methods=['POST'])
 @limiter.limit("3 per hour")
 def contact_message():
-    """Handle contact form submissions"""
+    """Handle contact form submissions with validation"""
     try:
         data = request.get_json()
         
-        required_fields = ['name', 'email', 'message']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'success': False, 'message': f'{field} is required'}), 400
+        # Sanitize inputs
+        for field in ['name', 'email', 'subject', 'message']:
+            if data.get(field):
+                data[field] = sanitize_input(data[field])
+        
+        # Validate data
+        validation_errors = validate_contact_data(data)
+        if validation_errors:
+            return jsonify({
+                'success': False,
+                'message': 'Validation failed',
+                'errors': validation_errors
+            }), 400
         
         message = ContactMessage(
             name=data['name'],
@@ -142,4 +168,3 @@ def contact_message():
         logger.error(f"Error saving contact message: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
-        

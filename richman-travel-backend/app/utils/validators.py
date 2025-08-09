@@ -1,4 +1,4 @@
-# app/utils/validators.py - Input validation functions
+# app/utils/validators.py
 import re
 from datetime import datetime, date
 
@@ -6,7 +6,7 @@ def validate_email(email):
     """Validate email format"""
     if not email:
         return False
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
 def validate_phone(phone):
@@ -14,7 +14,7 @@ def validate_phone(phone):
     if not phone:
         return True  # Phone is optional
     # Allow various phone formats
-    pattern = r'^[\+]?[1-9][\d]{0,15}
+    pattern = r'^[\+]?[1-9][\d]{0,15}$'
     return re.match(pattern, re.sub(r'[\s\-\(\)]', '', phone)) is not None
 
 def validate_booking_data(data):
@@ -97,7 +97,7 @@ def is_valid_url(url):
     """Validate URL format"""
     if not url:
         return True  # URL is optional
-    pattern = r'^https?://[^\s/$.?#].[^\s]*
+    pattern = r'^https?://[^\s/$.?#].[^\s]*$'
     return re.match(pattern, url) is not None
 
 def sanitize_input(text):
@@ -108,3 +108,4 @@ def sanitize_input(text):
     text = re.sub(r'<[^>]*>', '', text)
     text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
     return text.strip()
+    
